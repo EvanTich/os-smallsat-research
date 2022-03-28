@@ -1,14 +1,18 @@
-#include <stdio.h>
-#include <time.h>
-#include <sys/time.h>
-#include <unistd.h>
+#include <stdio.h>      /* printf */
+#include <time.h>       /* clock */
+#include <sys/time.h>   /* gettimeofday */
+#include <unistd.h>     /* sleep */
+#include <string.h>     /* strcmp */
+#include <stdlib.h>     /* atoi */
 
 #define WAIT_TIME 1000000
 #define WAIT_EPSILON 500
-#define WAIT_UNTIL_TIME 5
-#define TESTS 10
+#define WAIT_MODULO 5
+#define TESTS 100
 
-typedef long long (*wait_func)(long, long);
+#define VERBOSE 1
+
+typedef long long (*wait_func)(long, long*);
 
 long long diff_time(struct timeval end, struct timeval start) {
     return (end.tv_sec - start.tv_sec) * 1000000 + end.tv_usec - start.tv_usec;
@@ -17,7 +21,7 @@ long long diff_time(struct timeval end, struct timeval start) {
 /**
  * Waits for wait_time seconds using a dumb approach.
  */
-long long busy_wait(long wait_time, long _dummy) {
+long long busy_wait(long wait_time, long* _) {
     struct timeval start, end;
     long long diff;
 
@@ -33,12 +37,12 @@ long long busy_wait(long wait_time, long _dummy) {
 /**
  * Waits for wait_time seconds using sleep.
  */
-long long sleep_wait(long wait_time, long _dummy) {
+long long sleep_wait(long wait_time, long* _) {
     struct timeval start, end;
     long long diff;
 
     gettimeofday(&start, NULL);
-    sleep(wait_time / 1000000);
+    sleep(wait_time / 1000000.0);
     gettimeofday(&end, NULL);
     diff = diff_time(end, start);
 
@@ -49,17 +53,15 @@ long long sleep_wait(long wait_time, long _dummy) {
  * First waits using sleep and then finishes off using a busy wait
  *  in an attempt to get very low time difference.
  */
-long long custom_wait(long wait_time, long wait_epsilon) {
-    struct timeval start, middle, end;
-    long long busy_time, diff;
+long long custom_wait(long wait_time, long* wait_epsilon) {
+    struct timeval start, end;
+    long long diff;
 
     // first use sleep to wait using interrupts
     gettimeofday(&start, NULL);
-    sleep((wait_time - wait_epsilon) / 1000000);
-    gettimeofday(&middle, NULL);
+    sleep((wait_time - *wait_epsilon) / 1000000.0);
 
     // now busy wait for the remaining time
-    busy_time = wait_epsilon - diff_time(middle, start);
     do {
         gettimeofday(&end, NULL);
         diff = diff_time(end, start);
@@ -70,61 +72,187 @@ long long custom_wait(long wait_time, long wait_epsilon) {
 
 /**
  * Waits until time modulo modulo_time is 0.
+ * Not included in the full test run due to it being
+ *  functionally different from the other wait functions.
  */
-long long wait_until(long modulo_time, long _dummy) {
-    time_t current_time;
-    long long diff2;
+long long wait_until(long modulo_time, long* _) {
+    struct timeval current_time;
+    long long diff;
 
-    time(&current_time);
-    diff2 = modulo_time - (current_time % modulo_time);
+    gettimeofday(&current_time, NULL);
+    diff = modulo_time - (current_time.tv_sec % modulo_time);
 
     // use different wait impl.
-    return sleep_wait(diff2 * 1000000, 0);
+    return sleep_wait(diff * 1000000, 0);
 }
 
-// TODO: sleep weighted, custom weighted
+/**
+ * The goal of this wait function is to reduce the amount of CPU cycles
+ *  from the busy wait after sleeping.
+ * Uses the weighted average of the amount of time it should take to
+ *  sleep and then busy wait.
+ */
+long long custom_weighted_wait(long wait_time, long* wait_epsilon) {
+    struct timeval start, middle, end;
+    long long busy_time, diff;
 
-void run_test(wait_func func, char *func_name, long param1, long param2) {
+    if(*wait_epsilon < 0) {
+        *wait_epsilon = WAIT_EPSILON;
+    }
+
+    // first use sleep to wait using interrupts
+    gettimeofday(&start, NULL);
+    sleep((wait_time - *wait_epsilon) / 1000000.0);
+    gettimeofday(&middle, NULL);
+
+    // now busy wait for the remaining time
+    busy_time = *wait_epsilon - diff_time(middle, start);
+    do {
+        gettimeofday(&end, NULL);
+        diff = diff_time(end, start);
+    } while(diff < wait_time);
+
+#if VERBOSE
+    printf("time - epsilon = %ld\n", wait_time - *wait_epsilon);
+    printf("busy time = %lld\n", busy_time);
+#endif
+
+    // 90% of wait is kept, current wait is more important
+    *wait_epsilon = (long) (0.9 * *wait_epsilon + 0.1 * busy_time);
+
+    return diff - wait_time;
+}
+
+/**
+ * Runs tests on the given function using the given parameters.
+ *  Handles weighted averages for
+ */
+void run_test(wait_func func, char *func_name, long wait_time, long epsilon, int tests) {
     long long diff, sum, max, min;
-    // TODO: long weighted_avg = 0.0;
+    clock_t clock_time, clock_sum;
+    char epsilon_enabled = epsilon != -1;
 
     printf("Running %s tests...\n", func_name);
     // set initial value for sum, max, min
-    sum = min = func(param1, param2);
-    max = 0;
-    for(int j = 1; j < TESTS; j++) {
-        diff = func(param1, param2);
+    sum = max = min = func(wait_time, &epsilon);
+    for(int j = 1; j < tests; j++) {
+        clock_time = clock();
+
+        diff = func(wait_time, &epsilon);
+        clock_time = clock() - clock_time;
+
+        clock_sum += clock_time;
         sum += diff;
         if(diff > max) {
             max = diff;
         } else if(diff < min) {
             min = diff;
         }
+
+#if VERBOSE
+        printf("diff = %lld\n", diff);
+        printf("clock cycles = %ld\n", clock_time);
+
+        if(epsilon_enabled && epsilon < 0) {
+            printf("Epsilon is negative! %ld\n", epsilon);
+        }
+
+        if(j % 100 == 0) {
+            printf("...iteration %d epsilon = %ld\n", j, epsilon);
+        }
+#endif
     }
-    // print average
+
+    // print stats
     printf("%s test:\n", func_name);
-    printf("  Time loss = %lld\n", sum);
-    printf("  Max loss  = %lld\n", max);
-    printf("  Min loss  = %lld\n", min);
-    printf("  Avg. loss = %f\n", ((double) sum) / TESTS);
+    printf("  CPU Time used = %ld cycles\n", clock_sum);
+    printf("      Time loss = %lld microseconds\n", sum);
+    printf("       Max loss = %lld\n", max);
+    printf("       Min loss = %lld\n", min);
+    printf("      Avg. loss = %f\n", ((double) sum) / tests);
+    if(epsilon_enabled) {
+        printf("        Epsilon = %ld\n", epsilon);
+    }
 }
 
-void full_test(long wait_time, long wait_epsilon, long modulo_time) {
-    run_test(&busy_wait, "busy wait", wait_time, -1);
-    run_test(&sleep_wait, "sleep wait", wait_time, -1);
-    run_test(&custom_wait, "custom wait", wait_time, wait_epsilon);
-    run_test(&wait_until, "wait until time", modulo_time, -1);
+void full_test(long wait_time, long wait_epsilon, long modulo_time, int tests) {
+    run_test(&busy_wait, "busy wait", wait_time, -1, tests);
+    run_test(&sleep_wait, "sleep wait", wait_time, -1, tests);
+    run_test(&custom_wait, "custom wait", wait_time, wait_epsilon, tests);
+    run_test(&custom_weighted_wait, "custom weighted wait", wait_time, wait_epsilon, tests);
 }
 
 /**
  * Runs each wait function.
  */
 int main(int argc, char **argv) {
+    int wait_time = WAIT_TIME,
+        wait_epsilon = WAIT_EPSILON,
+        modulo_time = WAIT_MODULO,
+        tests = TESTS,
+        test = 0;
 
-    // TODO: argument parsing
+    for(int i = 1; i < argc - 1; i++) {
+        if(strcmp(argv[i], "--wait-time") == 0) {
+            wait_time = atoi(argv[i + 1]);
+            if(wait_time <= 0) {
+                printf("Invalid wait time! Reset to %d.\n", WAIT_TIME);
+                wait_time = WAIT_TIME;
+            }
+            i++;
+        } else if(strcmp(argv[i], "--epsilon") == 0) {
+            wait_epsilon = atoi(argv[i + 1]);
+            if(wait_epsilon < -1) {
+                printf("Invalid epsilon time! Reset to %d.\n", WAIT_EPSILON);
+                wait_epsilon = WAIT_EPSILON;
+            }
+            i++;
+        } else if(strcmp(argv[i], "--modulo-time") == 0) {
+            modulo_time = atoi(argv[i + 1]);
+            if(modulo_time <= 0) {
+                printf("Invalid modulo time! Reset to %d.\n", WAIT_MODULO);
+                modulo_time = WAIT_MODULO;
+            }
+            i++;
+        } else if(strcmp(argv[i], "--iterations") == 0) {
+            tests = atoi(argv[i + 1]);
+            if(tests <= 0) {
+                printf("Invalid number of tests! Reset to %d.\n", TESTS);
+                tests = TESTS;
+            }
+            i++;
+        } else if(strcmp(argv[i], "--test") == 0) {
+            test = atoi(argv[i + 1]);
+            if(test < 0 || test > 5) {
+                printf("Invalid test number! Reset to test 0.\n");
+                test = 0;
+            }
+            i++;
+        }
+    }
 
-    printf("Running %d wait tests with %d seconds of wait...\n", TESTS, WAIT_TIME / 1000000);
-    full_test(WAIT_TIME, WAIT_EPSILON, WAIT_UNTIL_TIME);
+    printf("Running %d wait tests with %f seconds of wait...\n", tests, wait_time / 1000000.0);
+    switch(test) {
+        case 0:
+            run_test(&busy_wait, "busy wait", wait_time, -1, tests);
+            break;
+        case 1:
+            run_test(&sleep_wait, "sleep wait", wait_time, -1, tests);
+            break;
+        case 2:
+            run_test(&custom_wait, "custom wait", wait_time, wait_epsilon, tests);
+            break;
+        case 3:
+            run_test(&custom_weighted_wait, "custom weighted wait", wait_time, wait_epsilon, tests);
+            break;
+        case 4:
+            run_test(&wait_until, "wait until time", modulo_time, -1, tests);
+            break;
+        case 5:
+            full_test(wait_time, wait_epsilon, modulo_time, tests);
+            break;
+    }
+    printf("Reminder: Number of clock cycles per second = %ld\n", CLOCKS_PER_SEC);
 
     return 0;
 }
