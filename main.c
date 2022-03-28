@@ -1,7 +1,7 @@
 #include <stdio.h>      /* printf */
 #include <time.h>       /* clock */
 #include <sys/time.h>   /* gettimeofday */
-#include <unistd.h>     /* sleep */
+//#include <unistd.h>     /* sleep */
 #include <string.h>     /* strcmp */
 #include <stdlib.h>     /* atoi */
 
@@ -13,6 +13,19 @@
 #define VERBOSE 1
 
 typedef long long (*wait_func)(long, long*);
+
+int sleep(long microseconds) {
+    struct timespec ts;
+
+    if(microseconds < 0) {
+        return -1;
+    }
+
+    ts.tv_sec = microseconds / 1000000;
+    ts.tv_nsec = (microseconds % 1000000) * 1000;
+
+    return nanosleep(&ts, &ts);
+}
 
 long long diff_time(struct timeval end, struct timeval start) {
     return (end.tv_sec - start.tv_sec) * 1000000 + end.tv_usec - start.tv_usec;
@@ -42,7 +55,7 @@ long long sleep_wait(long wait_time, long* _) {
     long long diff;
 
     gettimeofday(&start, NULL);
-    sleep(wait_time / 1000000.0);
+    sleep(wait_time);
     gettimeofday(&end, NULL);
     diff = diff_time(end, start);
 
@@ -59,7 +72,7 @@ long long custom_wait(long wait_time, long* wait_epsilon) {
 
     // first use sleep to wait using interrupts
     gettimeofday(&start, NULL);
-    sleep((wait_time - *wait_epsilon) / 1000000.0);
+    sleep(wait_time - *wait_epsilon);
 
     // now busy wait for the remaining time
     do {
@@ -102,11 +115,11 @@ long long custom_weighted_wait(long wait_time, long* wait_epsilon) {
 
     // first use sleep to wait using interrupts
     gettimeofday(&start, NULL);
-    sleep((wait_time - *wait_epsilon) / 1000000.0);
+    sleep(wait_time - *wait_epsilon);
     gettimeofday(&middle, NULL);
 
     // now busy wait for the remaining time
-    busy_time = *wait_epsilon - diff_time(middle, start);
+    busy_time = diff_time(middle, start) - wait_time + *wait_epsilon ;
     do {
         gettimeofday(&end, NULL);
         diff = diff_time(end, start);
