@@ -1,7 +1,6 @@
 #include <stdio.h>      /* printf */
 #include <time.h>       /* clock */
 #include <sys/time.h>   /* gettimeofday */
-//#include <unistd.h>     /* sleep */
 #include <string.h>     /* strcmp */
 #include <stdlib.h>     /* atoi */
 
@@ -126,7 +125,7 @@ long long custom_weighted_wait(long wait_time, long* wait_epsilon) {
     } while(diff < wait_time);
 
 #if VERBOSE
-    printf("time - epsilon = %ld\n", wait_time - *wait_epsilon);
+    printf("epsilon = %ld\n", *wait_epsilon);
     printf("busy time = %lld\n", busy_time);
 #endif
 
