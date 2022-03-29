@@ -124,13 +124,13 @@ long long custom_weighted_wait(long wait_time, long* wait_epsilon) {
         diff = diff_time(end, start);
     } while(diff < wait_time);
 
-#if VERBOSE
+#if 0
     printf("epsilon = %ld\n", *wait_epsilon);
     printf("busy time = %lld\n", busy_time);
 #endif
 
     // 90% of wait is kept, current wait is more important
-    *wait_epsilon = (long) (0.9 * *wait_epsilon + 0.1 * busy_time);
+    *wait_epsilon = (9 * *wait_epsilon + busy_time) / 10;
 
     return diff - wait_time;
 }
@@ -141,7 +141,8 @@ long long custom_weighted_wait(long wait_time, long* wait_epsilon) {
  */
 void run_test(wait_func func, char *func_name, long wait_time, long epsilon, int tests) {
     long long diff, sum, max, min;
-    clock_t clock_time, clock_sum;
+    clock_t clock_time;
+    unsigned long long clock_sum;
     char epsilon_enabled = epsilon != -1;
 
     printf("Running %s tests...\n", func_name);
@@ -177,7 +178,7 @@ void run_test(wait_func func, char *func_name, long wait_time, long epsilon, int
 
     // print stats
     printf("%s test:\n", func_name);
-    printf("  CPU Time used = %ld cycles\n", clock_sum);
+    printf("  CPU Time used = %lld cycles\n", clock_sum);
     printf("      Time loss = %lld microseconds\n", sum);
     printf("       Max loss = %lld\n", max);
     printf("       Min loss = %lld\n", min);
