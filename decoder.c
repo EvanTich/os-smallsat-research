@@ -1,10 +1,16 @@
 #include <stdio.h>
+#include <math.h>
 
+/**
+ * Converts the given fractional representation
+ *  to a floating point number.
+ */
 double convert(int x) {
     double num = 0.0;
     for(int i = 0; i < 32; i++) {
-        if(((x >> (31 - i)) & 1) == 1)
-            num += 1.0 / (1 << (i + 1));
+        if(((x >> (31 - i)) & 1) == 1) {
+            num += 1.0 / pow(2, i + 1);
+        }
     }
     return num;
 }
@@ -20,11 +26,6 @@ void test(int num1, int num2) {
 }
 
 int main() {
-    // double test = 0.0;
-    // for(int i = 0; i < 32; i++) {
-    //     test += 1.0 / (1 << (i + 1));
-    // }
-    // printf("%f = 2.0\n", test);
 
     test(0x07ae1472, 0x5ef9dab5);
     test(0xf2f1aa0b, 0x5a1caba0);

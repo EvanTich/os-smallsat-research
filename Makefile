@@ -5,7 +5,7 @@ main: main.c
 	$(CC) $(CFLAGS) -o main main.c
 
 decoder: decoder.c
-	$(CC) $(CFLAGS) -o decoder decoder.c
+	$(CC) $(CFLAGS) -o decoder decoder.c -lm
 
 run: run_sleep run_custom
 
