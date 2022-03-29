@@ -4,6 +4,9 @@ CFLAGS=-Wall -g
 main: main.c
 	$(CC) $(CFLAGS) -o main main.c
 
+decoder: decoder.c
+	$(CC) $(CFLAGS) -o decoder decoder.c
+
 run: run_sleep run_custom
 
 run_sleep: main
@@ -14,4 +17,4 @@ run_custom: main
 
 .PHONY: clean
 clean:
-	rm -f main
+	rm -f main decoder
