@@ -12,6 +12,7 @@ The goal of our research was to analyze cubesat mission requirements and their t
 The benefit of having both missions is that each has drastically different mission requirements, which has lead to different design choices. The MOCI mission requires specific timings, while the MEMESat-1 mission resembles a radio repeater that will have operational and non-operational states.
 
 ![Pi](./.images/pi.jpeg)
+
 <small>**Figure 1:** The Raspberry Pi 4 used as the mock MEMESat-1 OBC.</small>
 
 ## BACKGROUND
@@ -38,9 +39,11 @@ Our main approach was to use wait functions to analyze time loss by comparing th
 For the Real Time Operating System (RTOS), we added timing functionality inside of our existing scheduling system for the MOCI satellite. This system allows us to specify a transition to a new operational mode after a set delay. To calculate the difference in timings, we found the system time to a resolution of approximately 233 picoseconds<sup>[3]</sup> from when the schedule was uploaded to when it transitioned. This difference shows the fractional time loss as all transitions should have been precise to the second. Any additional time shown between the two times would represent a time loss for the scheduler operation which can be ignored.
 
 ![custom wait](./.images/custom_wait.png)
+
 <small>**Figure 2:** The code for the custom wait function used during testing.</small>
 
 ![convert](./.images/convert.png)
+
 <small>**Figure 3:** The code used to convert fractional integar to floating point.</small>
 
 ## CONCLUSION AND FUTURE IMPROVEMENTS
@@ -49,6 +52,7 @@ Similarly, the implementation of the scheduler onboard MOCI may have hidden over
 These flaws will be investigated further, with the likelihood of methodology being the same across the operating systems to provide better, more accurate results for data comparison. 
 
 ![conclusion](./.images/conclusion.png)
+
 <small>**Figure 4:** Custom timings from the Raspbian Lite operating system as well as scheduler time loss from the FreeRTOS operating system on MOCI.</small>
 
 <hr>
@@ -68,7 +72,5 @@ These flaws will be investigated further, with the likelihood of methodology bei
 
 ![SSRL](./.images/SSRL.png)
 
-![MOCI](./.images/MOCI_Patch_v2.png)
-
-![MEMESat](./.images/MEMESAT-1.png)
+<img src="./.images/MOCI_Patch_v2.png" alt="MOCI" width="200"/> <img src="./.images/MEMESAT-1.png" alt="MEMESat" width="200"/>
 
