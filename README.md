@@ -66,11 +66,9 @@ These flaws will be investigated further, with the likelihood of methodology bei
 
 <hr>
 
-<img src="./.images/UGA.png" alt="UGA" width="400"/>
+<img src="./.images/UGA.png" alt="UGA" width="800"/>
 
-<img src="./.images/CURO.png" alt="CURO" width="400"/>
+<img src="./.images/CURO.png" alt="CURO" width="400"/><img src="./.images/SSRL.png" alt="SSRL" width="400"/>
 
-<img src="./.images/SSRL.png" alt="SSRL" width="400"/>
-
-<img src="./.images/MOCI_Patch_v2.png" alt="MOCI" width="200"/> <img src="./.images/MEMESAT-1.png" alt="MEMESat" width="200"/>
+<div><center><img src="./.images/MOCI_Patch_v2.png" alt="MOCI" width="200"/> <img src="./.images/MEMESAT-1.png" alt="MEMESat" width="200"/></center></div>
 
